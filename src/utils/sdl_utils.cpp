@@ -14,6 +14,7 @@ SDLResources::SDLResources(){
 
 SDLResources::SDLResources(const char* title, const int width, const int height) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        SDL_Quit();
         throw std::runtime_error("SDL could not initialize! SDL_Error: " + std::string(SDL_GetError()));
     }
 
@@ -56,8 +57,12 @@ SDLResources::SDLResources(const char* title, const int width, const int height)
 
 // -- Destructor
 SDLResources::~SDLResources() {
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
+    if (renderer) {
+        SDL_DestroyRenderer(renderer);
+    }
+    if (window) {
+        SDL_DestroyWindow(window);
+    }
     renderer = NULL;
     window = NULL;
 
@@ -133,6 +138,39 @@ void SDLResources::drawDiamond(int x, int y, int h, int w) {
         {x - w, y + h/2},   // Left point
         {x - w/2, y}       // Back to top (to close the shape)
     };
+
+    SDL_RenderDrawLines(renderer, points, 5);  // Draw the diamond shape
+}
+
+void SDLResources::drawFilledDiamond(int x, int y, int h, int w) {
+    SDL_Point points[5] = {
+        {x - w/2, y},       // Top point
+        {x, y + h/2},       // Right point
+        {x - w/2, y + h},   // Bottom point
+        {x - w, y + h/2},   // Left point
+        {x - w/2, y}       // Back to top (to close the shape)
+    };
+
+    int topX = x - w/2;
+    int topY = y;
+    int bottomX = x - w/2;
+    int bottomY = y + h;
+    int leftX = x - w;
+    int rightX = x;
+
+    // Render filled top triangle (from top to middle)
+    for (int i = 0; i <= h/2; ++i) {
+        int startX = topX + (i * (leftX - topX)) / (h/2);
+        int endX = topX + (i * (rightX - topX)) / (h/2);
+        SDL_RenderDrawLine(renderer, startX, topY + i, endX, topY + i);
+    }
+
+    // Render filled bottom triangle (from middle to bottom)
+    for (int i = 0; i <= h/2; ++i) {
+        int startX = bottomX + (i * (leftX - bottomX)) / (h/2);
+        int endX = bottomX + (i * (rightX - bottomX)) / (h/2);
+        SDL_RenderDrawLine(renderer, startX, bottomY - i, endX, bottomY - i);
+    }
 
     SDL_RenderDrawLines(renderer, points, 5);  // Draw the diamond shape
 }
@@ -216,58 +254,93 @@ void SDLResources::renderRightViewport(){
     renderViewport(3, 0, 0, 0);
 }
 
-
-
 // Drawing the grid
 void SDLResources::drawIsometricGrid() {
-    // Grid size
-    int gridWidth = 15; //15
-    int gridHeight = 19; //19
-
-    // Isometric ratio
-    float isoRatio = 2.0f;
-
     // Get viewport dimensions
     int viewportWidth = viewports[0].w;
     int viewportHeight = viewports[0].h;
 
     // Calculate grid and viewport ratio
-    float gridRatio = float(gridWidth) / (gridHeight);
+    float gridRatio = float(gridMaxWidth) / (gridMaxHeight);
     float viewportRatio = float(viewportWidth) / (viewportHeight * isoRatio);
 
     float tileWidth, tileHeight;
 
-    // See if we want to calculate the tile width or height 
+    // See if we want to calculate the tile width or height first
+    // based on the ratio of our viewport
     if (viewportRatio <= gridRatio){
-        tileWidth = (float)viewportWidth / gridWidth;
+        tileWidth = static_cast<float>(viewportWidth) / gridMaxWidth;
         tileHeight = tileWidth / isoRatio;
     }
     else{
-        tileHeight = (float)viewportHeight / gridHeight;
+        tileHeight = static_cast<float>(viewportHeight) / gridMaxHeight;
         tileWidth = tileHeight * isoRatio;
     }
 
     // Apply an offset so the gris is always centered
-    float x_offset = (viewportWidth - (tileWidth * gridWidth)) / 2;
-    float y_offset = (viewportHeight - (tileHeight * gridHeight)) / 2;
+    float x_offset = (viewportWidth - (tileWidth * gridMaxWidth)) / 2;
+    float y_offset = (viewportHeight - (tileHeight * gridMaxHeight)) / 2;
 
-    // Draw the grid
-    for (int row = gridWidth; row > 0; --row) {
-        for (int col = 0; col < gridHeight; ++col) {
+    // We first draw the the Top side then the bottom side, left to right
+    // If we have obstacles, it will prevent having texture on each other.
+
+    // Draw the grid (Top side)
+    for (int line = gridMaxWidth; line > 0; --line) {
+        int numberOfGridToDraw = ((gridMaxWidth - line) * 2) + 1;
+        for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
             // Calculate isometric coordinates
-            int x = (tileWidth * row) + x_offset;
-            int y = (tileHeight* col) + y_offset;
+            float x = (tileWidth * line) + ((tileWidth/2) * grid) + x_offset;
+            float y = ((tileHeight/2) * grid) + y_offset;
 
-            // Set tile color
-            if ((row + col) % 2 == 0) {
+            if (grid % 2 == 0) {
                 SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
             } else {
                 SDL_SetRenderDrawColor(renderer, 0x55, 0x55, 0x55, 0xFF);
             }
 
             // Draw diamond
+            drawFilledDiamond(x, y, tileHeight, tileWidth);
+
+            // Draw outline
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            drawDiamond(x, y, tileHeight, tileWidth);
+        }
+    }
+
+    // Draw the grid bottom side.
+    for (int line = 1; line < gridMaxHeight; ++line) {
+        
+        int numberOfGridToDraw;
+        
+        // Number of grid to draw isn't linear because we have a rectangle shape.
+        // We need to compensate because height > width
+        // Also the line starting from the corner was drawn by the loop above
+        // hence the two "-1" in the following lines 
+        if (line <= (gridMaxHeight - gridMaxWidth)){
+            numberOfGridToDraw = ((gridMaxWidth - 1) * 2) + 1;
+        }
+        else{
+            numberOfGridToDraw = ((gridMaxHeight - line - 1) * 2) + 1;
+        }
+
+        for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
+            // Calculate isometric coordinates
+            float x = (tileWidth/2 * grid) + tileWidth + x_offset;
+            float y = (tileHeight/2 * grid) + (tileHeight * line) + y_offset;
+
+            // Alternate colors
+            if (grid % 2 == 0) {
+                SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0x55, 0x55, 0x55, 0xFF);
+            }
+
+            // Draw diamond
+            drawFilledDiamond(x, y, tileHeight, tileWidth);
+
+            // Draw outline
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             drawDiamond(x, y, tileHeight, tileWidth);
         }
     }
 }
-

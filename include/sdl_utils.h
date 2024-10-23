@@ -13,17 +13,26 @@ class SDLResources {
         int windowWidth;
         int windowHeight;
         bool quit;
-
         bool windowResized = false;
 
         // viewports data
         SDL_Rect viewports[4];
+
+        // grid data
+        const int gridMaxWidth = 15;
+        const int gridMaxHeight = 19;
+        const float isoRatio = 2.0f;
+
 
     public:
         // Constructor / Destructor
         SDLResources();
         SDLResources(const char* title, int width, int height);
         ~SDLResources();
+
+        // Delete copy constructor and assignment operator
+        SDLResources(const SDLResources&) = delete;
+        SDLResources& operator=(const SDLResources&) = delete;
 
         // Getters
         SDL_Renderer* getRenderer() const { return renderer; }
@@ -51,6 +60,7 @@ class SDLResources {
         void fillRect(const SDL_Rect& rect);
         void drawLine(int x1, int y1, int x2, int y2);
         void drawDiamond(int x, int y, int h, int w);
+        void drawFilledDiamond(int x, int y, int h, int w);
 
         // Global Render function
         void render();
