@@ -4,6 +4,10 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
+#include <memory>
+
+#include "isometric_grid.h"
+
 class SDLResources {
 
     private:
@@ -19,10 +23,7 @@ class SDLResources {
         SDL_Rect viewports[4];
 
         // grid data
-        const int gridMaxWidth = 15;
-        const int gridMaxHeight = 19;
-        const float isoRatio = 2.0f;
-
+        IsometricGrid isometricGrid;
 
     public:
         // Constructor / Destructor
@@ -43,7 +44,8 @@ class SDLResources {
 
         // Setters
         void setQuit(bool b) { quit =b; }
-        
+        void loadMap(std::string filename); // setGrid() equivalent
+
         // Event Handling
         void processEvents();
         void screenToGrid(int mouseX, int mouseY, int &gridX, int &gridY);
@@ -68,13 +70,18 @@ class SDLResources {
         // Viewports functions
         void calculateViewportsPos();
         void renderViewports();
-        void renderViewport(int idx, int r, int g, int b);
+        void renderViewportBackground(int idx, int r, int g, int b);
         void renderLeftViewport();
         void renderRightViewport();
         void renderMainViewport();
         void renderBottomViewport();
 
-        // Grid
+        // Grid (Main viewport)
+        // Used to experiemente what how many grids I'll have on the screen
+        void drawIsometricGridDefault(); 
+        // Used to convert what I have on my screen to an array containing info
+        void drawIsometricGridThenCreateGridObject();
+        // Draw grid from 2d vector
         void drawIsometricGrid();
 
 };

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "json_utils.h"
 #include "sdl_utils.h"
 
 // -- Constructor
@@ -71,6 +72,12 @@ SDLResources::~SDLResources() {
     SDL_Quit();
 }
 
+// Setters
+void SDLResources::loadMap(std::string filename){
+    // Get reference to the vector2D inside IsometricGrid object.
+    JsonUtils::loadGridFromJson(isometricGrid, filename);
+}
+
 // -- Event Handling
 void SDLResources::processEvents(){
     SDL_Event event;
@@ -130,33 +137,33 @@ void SDLResources::drawLine(int x1, int y1, int x2, int y2) {
     SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
 }
 
-void SDLResources::drawDiamond(int x, int y, int h, int w) {
+void SDLResources::drawDiamond(int x, int y, int w, int h) {
     SDL_Point points[5] = {
-        {x - w/2, y},       // Top point
-        {x, y + h/2},       // Right point
-        {x - w/2, y + h},   // Bottom point
-        {x - w, y + h/2},   // Left point
-        {x - w/2, y}       // Back to top (to close the shape)
+        {x, y},       // Top point
+        {x + w/2, y + h/2},       // Right point
+        {x, y + h},   // Bottom point
+        {x - w/2, y + h/2},   // Left point
+        {x, y},      // Back to top (to close the shape)
     };
 
     SDL_RenderDrawLines(renderer, points, 5);  // Draw the diamond shape
 }
 
-void SDLResources::drawFilledDiamond(int x, int y, int h, int w) {
+void SDLResources::drawFilledDiamond(int x, int y, int w, int h) {
     SDL_Point points[5] = {
-        {x - w/2, y},       // Top point
-        {x, y + h/2},       // Right point
-        {x - w/2, y + h},   // Bottom point
-        {x - w, y + h/2},   // Left point
-        {x - w/2, y}       // Back to top (to close the shape)
+        {x, y},       // Top point
+        {x + w/2, y + h/2},       // Right point
+        {x, y + h},   // Bottom point
+        {x - w/2, y + h/2},   // Left point
+        {x, y},      // Back to top (to close the shape)
     };
 
-    int topX = x - w/2;
+    int topX = x;
     int topY = y;
-    int bottomX = x - w/2;
+    int bottomX = x;
     int bottomY = y + h;
-    int leftX = x - w;
-    int rightX = x;
+    int leftX = x - w/2;
+    int rightX = x + w/2;
 
     // Render filled top triangle (from top to middle)
     for (int i = 0; i <= h/2; ++i) {
@@ -195,7 +202,7 @@ void SDLResources::renderViewports(){
 }
 
 // Render a single viewport
-void SDLResources::renderViewport(int idx, int r, int g, int b){
+void SDLResources::renderViewportBackground(int idx, int r, int g, int b){
     // idx 0 = main / 1 = bottom / 2 = left / 3 = right
     SDL_RenderSetViewport(renderer, &viewports[idx]);
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
@@ -238,59 +245,165 @@ void SDLResources::calculateViewportsPos(){
 }
 
 void SDLResources::renderMainViewport(){
-    renderViewport(0, 35, 35, 35);
+    renderViewportBackground(0, 35, 35, 35);
+    
+    // To see the grid, used to test the render
+    // drawIsometricGrid();
+
+    // Transform data from function above into an IsometricGrid object.
     drawIsometricGrid();
 }
 
 void SDLResources::renderBottomViewport(){
-    renderViewport(1, 255, 0, 0);
+    renderViewportBackground(1, 255, 0, 0);
 }
 
 void SDLResources::renderLeftViewport(){
-    renderViewport(2, 0, 0, 0);
+    renderViewportBackground(2, 0, 0, 0);
 }
 
 void SDLResources::renderRightViewport(){
-    renderViewport(3, 0, 0, 0);
+    renderViewportBackground(3, 0, 0, 0);
 }
 
-// Drawing the grid
-void SDLResources::drawIsometricGrid() {
+void SDLResources::drawIsometricGrid(){
+    std::vector<std::vector<GridCell>>& grid = isometricGrid.getGrid();
+    float x, y, baseX, baseY;
+    float cellWidth, cellHeight;
+    
+    const float baseCellWidth = isometricGrid.getCellWidth();
+    const float baseCellHeight = isometricGrid.getCellHeight();   
+    const float baseViewportWidth = isometricGrid.getViewportWidth();
+    const float baseViewportHeight = isometricGrid.getViewportHeight();
+
+    const float currentViewportWidth = viewports[0].w;
+    const float currentViewportHeight = viewports[0].h;
+
+    // if current viewport size != base viewport size, recalculate cell size
+    if (currentViewportWidth != baseViewportWidth){
+        std::cout << "---- 1" << std::endl;
+        std::cout << "---- currentViewportWidth : " << currentViewportWidth << std::endl;
+        std::cout << "---- baseViewportWidth : " << baseViewportWidth << std::endl;
+        cellWidth = (baseCellWidth * currentViewportWidth) / baseViewportWidth;
+        cellHeight = (baseCellHeight * currentViewportHeight) / baseViewportHeight;
+    }
+    else {
+        std::cout << "---- 2" << std::endl;
+        cellWidth = baseCellWidth;
+        cellHeight = baseCellHeight;
+    }
+
+    std::cout << "---- drawIsometricGrid" << std::endl;
+
+    
+    std::cout << "pls : " << isometricGrid.getGrid()[0][14].x << std::endl;
+    std::cout << "pls : " << cellWidth << std::endl;
+    std::cout << "pls : " << cellHeight << std::endl;
+
+
+    // It prints a different value here
+    
+
+    //Draw the grid
+    for (int h = 0; h < isometricGrid.getCellHeight(); ++h) {
+        for (int w = 0; w < isometricGrid.getWidth(); ++w) {
+            // std::cout << "-" << std::endl;
+            // std::cout << grid[h][w].cellType << std::endl;
+            // std::cout << grid[0][14].cellType << std::endl;
+
+            if (grid[h][w].cellType != CellType::NO_RENDER){
+
+                baseX = grid[h][w].x;
+                baseY = grid[h][w].y;
+                
+                x = (baseX * currentViewportWidth) / baseViewportWidth;
+                y = (baseY * currentViewportHeight) / baseViewportHeight; 
+
+                if (w % 2 == 0) {
+                    SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
+                } else {
+                    SDL_SetRenderDrawColor(renderer, 0x55, 0x55, 0x55, 0xFF);
+                }
+
+                // Draw diamond
+                drawFilledDiamond(x, y, cellWidth, cellHeight);
+
+                // // Draw outline
+                SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                drawDiamond(x, y, cellWidth, cellHeight);
+            }
+        }
+    }
+}
+
+// Drawing the grid and save to bleh.json
+void SDLResources::drawIsometricGridThenCreateGridObject() {
+    // Get const info from IsometricGrid object
+    float renderedGridWidth = isometricGrid.getRenderedGridWidth();
+    float renderedGridHeight = isometricGrid.getRenderedGridHeight();
+    float isoRatio = isometricGrid.getIsoRatio();
+    
+    
     // Get viewport dimensions
     int viewportWidth = viewports[0].w;
     int viewportHeight = viewports[0].h;
 
     // Calculate grid and viewport ratio
-    float gridRatio = float(gridMaxWidth) / (gridMaxHeight);
+    float gridRatio = float(renderedGridWidth) / (renderedGridHeight);
     float viewportRatio = float(viewportWidth) / (viewportHeight * isoRatio);
 
-    float tileWidth, tileHeight;
+    float cellWidth, cellHeight;
 
     // See if we want to calculate the tile width or height first
     // based on the ratio of our viewport
+    // (So we can have extra space at the left/right or top/bottom)
     if (viewportRatio <= gridRatio){
-        tileWidth = static_cast<float>(viewportWidth) / gridMaxWidth;
-        tileHeight = tileWidth / isoRatio;
+        cellWidth = static_cast<float>(viewportWidth) / renderedGridWidth;
+        cellWidth = round(cellWidth);
+        cellHeight = cellWidth / isoRatio;
     }
     else{
-        tileHeight = static_cast<float>(viewportHeight) / gridMaxHeight;
-        tileWidth = tileHeight * isoRatio;
+        cellHeight = static_cast<float>(viewportHeight) / renderedGridHeight;
+        cellHeight = round(cellHeight);
+        cellWidth = cellHeight * isoRatio;
     }
 
     // Apply an offset so the gris is always centered
-    float x_offset = (viewportWidth - (tileWidth * gridMaxWidth)) / 2;
-    float y_offset = (viewportHeight - (tileHeight * gridMaxHeight)) / 2;
+    float x_offset = (viewportWidth - (cellWidth * renderedGridWidth)) / 2;
+    // Since the point x of our grid is at the center top, we need to offset
+    // be half the witdh of a cell
+    x_offset -= (cellWidth/2);
+    float y_offset = (viewportHeight - (cellHeight * renderedGridHeight)) / 2;
 
     // We first draw the the Top side then the bottom side, left to right
     // If we have obstacles, it will prevent having texture on each other.
 
-    // Draw the grid (Top side)
-    for (int line = gridMaxWidth; line > 0; --line) {
-        int numberOfGridToDraw = ((gridMaxWidth - line) * 2) + 1;
+    const int gridWidth = 33;
+    const int gridHeight = 33;
+
+    int xGrid;
+    int yGrid;
+    std::vector<std::vector<GridCell>>& isoGrid = isometricGrid.getGrid();
+
+    for (int line = renderedGridWidth; line > 0; --line) {
+        // x index to fill the IsometricGrid object
+        int xGrid = renderedGridWidth - line;
+        
+        // Number of grid to draw for each line
+        int numberOfGridToDraw = ((renderedGridWidth - line) * 2) + 1;
+        
         for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
-            // Calculate isometric coordinates
-            float x = (tileWidth * line) + ((tileWidth/2) * grid) + x_offset;
-            float y = ((tileHeight/2) * grid) + y_offset;
+            // y index to fill the IsometricGrid object
+            yGrid = grid + (14 - (numberOfGridToDraw / 2));
+            
+            // top point of cell on screen
+            float x = (cellWidth * line) + ((cellWidth/2) * grid) + x_offset;
+            float y = ((cellHeight/2) * grid) + y_offset;
+
+            // Add the cell to the IsometricGrad object
+            isoGrid[xGrid][yGrid].x = x;
+            isoGrid[xGrid][yGrid].y = y;
+            isoGrid[xGrid][yGrid].cellType = WALKABLE;
 
             if (grid % 2 == 0) {
                 SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
@@ -299,34 +412,46 @@ void SDLResources::drawIsometricGrid() {
             }
 
             // Draw diamond
-            drawFilledDiamond(x, y, tileHeight, tileWidth);
+            drawFilledDiamond(x, y, cellWidth, cellHeight);
 
             // Draw outline
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            drawDiamond(x, y, tileHeight, tileWidth);
+            drawDiamond(x, y, cellWidth, cellHeight);
         }
     }
 
     // Draw the grid bottom side.
-    for (int line = 1; line < gridMaxHeight; ++line) {
+    for (int line = 1; line < renderedGridHeight; ++line) {
         
         int numberOfGridToDraw;
         
-        // Number of grid to draw isn't linear because we have a rectangle shape.
+        // Number of grid to draw isn't linear for each new line 
+        // because we have a rectangle shape.
         // We need to compensate because height > width
         // Also the line starting from the corner was drawn by the loop above
-        // hence the two "-1" in the following lines 
-        if (line <= (gridMaxHeight - gridMaxWidth)){
-            numberOfGridToDraw = ((gridMaxWidth - 1) * 2) + 1;
+        // hence the two "-1" in the following lines
+        if (line <= (renderedGridHeight - renderedGridWidth)){
+            numberOfGridToDraw = ((renderedGridWidth - 1) * 2) + 1;
         }
         else{
-            numberOfGridToDraw = ((gridMaxHeight - line - 1) * 2) + 1;
+            numberOfGridToDraw = ((renderedGridHeight - line - 1) * 2) + 1;
         }
 
+        // x index to fill the IsometricGrid object
+        xGrid = line + renderedGridWidth - 1;
+
         for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
+            // y index to fill the IsometricGrid object
+            yGrid = grid + 1;
+
             // Calculate isometric coordinates
-            float x = (tileWidth/2 * grid) + tileWidth + x_offset;
-            float y = (tileHeight/2 * grid) + (tileHeight * line) + y_offset;
+            float x = (cellWidth/2 * grid) + cellWidth + x_offset;
+            float y = (cellHeight/2 * grid) + (cellHeight * line) + y_offset;
+
+            // Add the cell to the IsometricGrad object
+            isoGrid[xGrid][yGrid].x = x;
+            isoGrid[xGrid][yGrid].y = y;
+            isoGrid[xGrid][yGrid].cellType = WALKABLE;
 
             // Alternate colors
             if (grid % 2 == 0) {
@@ -336,11 +461,123 @@ void SDLResources::drawIsometricGrid() {
             }
 
             // Draw diamond
-            drawFilledDiamond(x, y, tileHeight, tileWidth);
+            drawFilledDiamond(x, y, cellWidth, cellHeight);
 
             // Draw outline
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-            drawDiamond(x, y, tileHeight, tileWidth);
+            drawDiamond(x, y, cellWidth, cellHeight);
+        }
+    }
+
+
+    std::cout << "-----" << std::endl;
+    std::cout << isoGrid[0][0].x << std::endl;
+    std::cout << cellHeight << std::endl;
+    isometricGrid.setCellWidth(cellWidth);
+    isometricGrid.setCellHeight(cellHeight);
+    isometricGrid.setViewportWidth(viewportWidth);
+    isometricGrid.setViewportHeight(viewportHeight);
+
+    //To save the grid:
+    if (JsonUtils::saveGridToJson(isometricGrid, "bleh.json")) 
+    {
+        std::cout << "Grid saved successfully!" << std::endl;
+    }
+}
+
+void SDLResources::drawIsometricGridDefault() {
+    // Get const info from IsometricGrid object
+    float renderedGridWidth = isometricGrid.getRenderedGridWidth();
+    float renderedGridHeight = isometricGrid.getRenderedGridHeight();
+    float isoRatio = isometricGrid.getIsoRatio();
+
+    // Get viewport dimensions
+    int viewportWidth = viewports[0].w;
+    int viewportHeight = viewports[0].h;
+
+    // Calculate grid and viewport ratio
+    float gridRatio = float(renderedGridWidth) / (renderedGridHeight);
+    float viewportRatio = float(viewportWidth) / (viewportHeight * isoRatio);
+
+    float cellWidth, cellHeight;
+
+    // See if we want to calculate the tile width or height first
+    // based on the ratio of our viewport
+    if (viewportRatio <= gridRatio){
+        cellWidth = static_cast<float>(viewportWidth) / renderedGridWidth;
+        cellHeight = cellWidth / isoRatio;
+    }
+    else{
+        cellHeight = static_cast<float>(viewportHeight) / renderedGridHeight;
+        cellWidth = cellHeight * isoRatio;
+    }
+
+    // Apply an offset so the gris is always centered
+    float x_offset = (viewportWidth - (cellWidth * renderedGridWidth)) / 2;
+    float y_offset = (viewportHeight - (cellHeight * renderedGridHeight)) / 2;
+
+    // We first draw the the Top side then the bottom side, left to right
+    // If we have obstacles, it will prevent having texture on each other.
+
+    // Draw the grid (Top side)
+    for (int line = renderedGridWidth; line > 0; --line) {
+        int numberOfGridToDraw = ((renderedGridWidth - line) * 2) + 1;
+        for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
+            // Calculate isometric coordinates
+            float x = (cellWidth * line) + ((cellWidth/2) * grid) + x_offset;
+            float y = ((cellHeight/2) * grid) + y_offset;
+
+            if (grid % 2 == 0) {
+                SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0x55, 0x55, 0x55, 0xFF);
+            }
+
+            // Draw diamond
+            drawFilledDiamond(x, y, cellWidth, cellHeight);
+
+            // Draw outline
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            drawDiamond(x, y, cellWidth, cellHeight);
+        }
+    }
+
+    // Draw the grid bottom side.
+    for (int line = 1; line < renderedGridHeight; ++line) {
+        
+        int numberOfGridToDraw;
+        
+        // Number of grid to draw isn't linear because we have a rectangle shape.
+        // We need to compensate because height > width
+        // Also the line starting from the corner was drawn by the loop above
+        // hence the two "-1" in the following lines 
+        if (line <= (renderedGridHeight - renderedGridWidth)){
+            numberOfGridToDraw = ((renderedGridWidth - 1) * 2) + 1;
+        }
+        else{
+            numberOfGridToDraw = ((renderedGridHeight - line - 1) * 2) + 1;
+            numberOfGridToDraw = ((renderedGridHeight - line - 1) * 2) + 1;
+        }
+
+        for (int grid = 0; grid < numberOfGridToDraw; ++grid) {
+            // Calculate isometric coordinates
+            float x = (cellWidth/2 * grid) + cellWidth + x_offset;
+            float y = (cellHeight/2 * grid) + (cellHeight * line) + y_offset;
+
+            // Alternate colors
+            if (grid % 2 == 0) {
+                SDL_SetRenderDrawColor(renderer, 0xAA, 0xAA, 0xAA, 0xFF);
+            } else {
+                SDL_SetRenderDrawColor(renderer, 0x55, 0x55, 0x55, 0xFF);
+            }
+
+            // Draw diamond
+            drawFilledDiamond(x, y, cellWidth, cellHeight);
+
+            // Draw outline
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            drawDiamond(x, y, cellWidth, cellHeight);
         }
     }
 }
+

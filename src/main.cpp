@@ -21,6 +21,10 @@ int main(int argc, char *args[])
 
 	SDLResources sdl(WINDOW_NAME, BASE_WINDOW_WIDTH, BASE_WINDOW_HEIGHT);
 	
+	// load map
+	sdl.loadMap("test_map.json");
+
+	
 	// Main loop
 	while (!sdl.getQuit())
 	{
